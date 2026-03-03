@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>vLLM 3D Heatmap v2 — Power Limit Comparison</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0a0a0f;
+            color: #e0e0e8;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ── Header ── */
+        .header {
+            padding: 10px 24px;
+            background: linear-gradient(135deg, #12121a 0%, #1a1a2e 100%);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .header-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .header h1 {
+            font-size: 17px;
+            font-weight: 600;
+            background: linear-gradient(135deg, #60a5fa, #a78bfa, #f472b6);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
+        }
+
+        .header .subtitle {
+            font-size: 10px;
+            color: #6b7280;
+            font-weight: 400;
+        }
+
+        .controls-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .divider {
+            width: 1px;
+            height: 22px;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        /* ── Toggle group ── */
+        .toggle-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .toggle-group>label,
+        .ctrl-label {
+            font-size: 11px;
+            font-weight: 500;
+            color: #9ca3af;
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 36px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            inset: 0;
+            background: #2a2a3e;
+            border-radius: 20px;
+            transition: 0.3s;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .toggle-slider::before {
+            content: '';
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            left: 2px;
+            bottom: 2px;
+            background: #6b7280;
+            border-radius: 50%;
+            transition: 0.3s;
+        }
+
+        .toggle-switch input:checked+.toggle-slider {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            border-color: rgba(139, 92, 246, 0.3);
+        }
+
+        .toggle-switch input:checked+.toggle-slider::before {
+            transform: translateX(16px);
+            background: #fff;
+        }
+
+        /* ── Surface buttons ── */
+        .surface-toggles {
+            display: flex;
+            gap: 3px;
+        }
+
+        .surface-btn {
+            padding: 4px 8px;
+            border-radius: 5px;
+            border: 1.5px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.04);
+            color: #6b7280;
+            font-size: 10px;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .surface-btn.active {
+            border-color: var(--btn-color);
+            color: #fff;
+            background: color-mix(in srgb, var(--btn-color) 25%, transparent);
+            box-shadow: 0 0 8px color-mix(in srgb, var(--btn-color) 20%, transparent);
+        }
+
+        .surface-btn:hover {
+            border-color: var(--btn-color);
+            background: color-mix(in srgb, var(--btn-color) 15%, transparent);
+        }
+
+        /* ── Dropdowns ── */
+        .styled-select {
+            background: #1a1a2e;
+            color: #d1d5db;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            padding: 4px 24px 4px 8px;
+            font-size: 10px;
+            font-weight: 500;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+            outline: none;
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239ca3af' fill='none' stroke-width='1.5'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 6px center;
+            min-width: 80px;
+            transition: border-color 0.2s;
+        }
+
+        .styled-select:hover,
+        .styled-select:focus {
+            border-color: rgba(139, 92, 246, 0.5);
+        }
+
+        .styled-select:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        /* ── GitHub badge ── */
+        .gh-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.04);
+            color: #d1d5db;
+            font-size: 11px;
+            font-weight: 500;
+            font-family: 'Inter', sans-serif;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .gh-badge:hover {
+            border-color: rgba(139, 92, 246, 0.5);
+            background: rgba(139, 92, 246, 0.1);
+            color: #fff;
+        }
+
+        .gh-badge svg {
+            fill: #d1d5db;
+            transition: fill 0.2s;
+        }
+
+        .gh-badge:hover svg {
+            fill: #fff;
+        }
+
+        .gh-star-count {
+            color: #eab308;
+            font-weight: 600;
+        }
+
+        /* ── Slider ── */
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: opacity 0.3s;
+        }
+
+        .speed-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 50px;
+            height: 3px;
+            background: #2a2a3e;
+            border-radius: 3px;
+            outline: none;
+        }
+
+        .speed-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #8b5cf6;
+            cursor: pointer;
+        }
+
+        /* ── Chart ── */
+        #plot {
+            flex: 1;
+            width: 100%;
+            min-height: 0;
+        }
+
+        /* ── Mobile ── */
+        @media (max-width: 767px) {
+            .header {
+                padding: 6px 12px;
+                gap: 4px;
+            }
+
+            .header h1 {
+                font-size: 14px;
+            }
+
+            .header .subtitle {
+                font-size: 9px;
+            }
+
+            .controls-row {
+                gap: 8px;
+            }
+
+            .surface-btn {
+                font-size: 10px;
+                padding: 3px 8px;
+            }
+
+            .toggle-group>label,
+            .ctrl-label {
+                font-size: 10px;
+            }
+
+            .styled-select {
+                font-size: 10px;
+                padding: 3px 6px;
+            }
+
+            .divider {
+                display: none;
+            }
+
+            .speed-control {
+                display: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <div class="header-top">
+            <div>
+                <h1>vLLM Throughput — Power Limit Comparison <span
+                        style="font-size:12px;-webkit-text-fill-color:#6b7280;">v2</span></h1>
+                <div class="subtitle">MiniMax-M2.5-NVFP4 · 2× RTX PRO 6000 Blackwell · 192GB VRAM</div>
+            </div>
+            <a class="gh-badge" href="https://github.com/shihanqu/Blackwell-Wattage-Performance" target="_blank"
+                rel="noopener">
+                <svg height="16" width="16" viewBox="0 0 16 16">
+                    <path
+                        d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+                </svg>
+                <span>★ <span id="starCount">—</span></span>
+            </a>
+        </div>
+        <div class="controls-row">
+            <div class="surface-toggles" id="surfaceToggles"></div>
+
+            <div class="divider"></div>
+
+            <!-- Dots toggle -->
+            <div class="toggle-group">
+                <label for="dotsToggle">Dots</label>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="dotsToggle">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+
+            <!-- Wiggle toggle + speed -->
+            <div class="toggle-group">
+                <label for="wiggleToggle">Wiggle</label>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="wiggleToggle">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="speed-control" id="speedControl" style="opacity:0.3; pointer-events:none;">
+                <span class="ctrl-label">Speed</span>
+                <input type="range" class="speed-slider" id="speedSlider" min="0.5" max="4" step="0.25" value="1.5">
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- Slice controls -->
+            <div class="toggle-group">
+                <span class="ctrl-label">Slice</span>
+                <select class="styled-select" id="sliceAxis">
+                    <option value="none">Off</option>
+                    <option value="x">Concurrency</option>
+                    <option value="y">Context Length</option>
+                    <option value="z">Throughput</option>
+                </select>
+                <select class="styled-select" id="sliceValue" disabled>
+                    <option value="">—</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    <div id="plot"></div>
+
+    <script>
+        // ═══════════ CONFIG ═══════════
+        const DATA_FILE = 'benchmark_v3_consolidated.json';
+        const GH_REPO = 'shihanqu/Blackwell-Wattage-Performance';
+
+        // Fetch GitHub star count
+        fetch(`https://api.github.com/repos/${GH_REPO}`)
+            .then(r => r.json())
+            .then(d => {
+                const el = document.getElementById('starCount');
+                if (el && typeof d.stargazers_count === 'number') {
+                    el.textContent = d.stargazers_count;
+                }
+            })
+            .catch(() => { });
+
+        const WATTAGES_CONFIG = [
+            { label: '200W', color: '#6366f1', colorscale: [[0, '#312e81'], [0.5, '#6366f1'], [1, '#a5b4fc']] }, // Indigo
+            { label: '250W', color: '#3b82f6', colorscale: [[0, '#1e3a8a'], [0.5, '#3b82f6'], [1, '#93c5fd']] }, // Blue
+            { label: '300W', color: '#06b6d4', colorscale: [[0, '#164e63'], [0.5, '#06b6d4'], [1, '#67e8f9']] }, // Cyan/Teal
+            { label: '350W', color: '#10b981', colorscale: [[0, '#064e3b'], [0.5, '#10b981'], [1, '#6ee7b7']] }, // Emerald
+            { label: '400W', color: '#84cc16', colorscale: [[0, '#3f6212'], [0.5, '#84cc16'], [1, '#bef264']] }, // Lime
+            { label: '450W', color: '#eab308', colorscale: [[0, '#713f12'], [0.5, '#eab308'], [1, '#fde68a']] }, // Yellow/Amber
+            { label: '500W', color: '#fb923c', colorscale: [[0, '#9a3412'], [0.5, '#fb923c'], [1, '#ffedd5']] }, // Light Orange
+            { label: '550W', color: '#f97316', colorscale: [[0, '#7c2d12'], [0.5, '#f97316'], [1, '#fdba74']] }, // Orange
+            { label: '600W', color: '#ef4444', colorscale: [[0, '#7f1d1d'], [0.5, '#ef4444'], [1, '#fca5a5']] }, // Red
+        ];
+
+        // ═══════════ STATE ═══════════
+        let benchmarkData = null;
+        let visibleSurfaces = new Set(WATTAGES_CONFIG.map(w => w.label));
+        let showDots = false;
+        let wiggleActive = false;
+        let wiggleRAF = null;
+        let wiggleAngle = 0;
+        let wiggleSpeed = 1.5;
+        let wiggleBaseCamera = null;
+        let isAnimatingWiggle = false;
+        let sliceAxis = 'none';
+        let sliceValue = null;
+
+        function getDefaultCamera() {
+            const w = window.innerWidth;
+            // On mobile, pull camera back to prevent clipping
+            const scale = w < 768 ? 1.5 : 1.0;
+            return {
+                eye: { x: 1.8 * scale, y: -1.8 * scale, z: 1.2 * scale },
+                center: { x: 0, y: 0, z: -0.1 },
+                up: { x: 0, y: 0, z: 1 }
+            };
+        }
+
+        // ═══════════ LOAD ═══════════
+        async function loadData() {
+            try {
+                const resp = await fetch(DATA_FILE);
+                benchmarkData = await resp.json();
+                computeAxisRanges();
+                initUI();
+                renderPlot();
+            } catch (e) {
+                console.error(`Failed to load ${DATA_FILE}:`, e);
+            }
+        }
+
+        // ═══════════ BUILD TRACES ═══════════
+
+        function buildSurface(zMatrix, config) {
+            const trace = {
+                x: benchmarkData.concurrencies,
+                y: benchmarkData.contexts,
+                z: zMatrix,
+                type: 'surface',
+                name: config.label,
+                colorscale: config.colorscale,
+                opacity: 1.0,
+                showscale: false,
+                hovertemplate:
+                    `<b>${config.label}</b><br>Conc: %{x}<br>Ctx: %{y}<br>%{z:.1f} tok/s<extra></extra>`,
+                lighting: { ambient: 0.6, diffuse: 0.5, specular: 0.3, roughness: 0.5, fresnel: 0.2 },
+            };
+            if (showDots) {
+                trace.contours = {
+                    z: { show: true, usecolormap: true, highlightcolor: '#fff', project: { z: false } }
+                };
+            }
+            return trace;
+        }
+
+        function buildDots(zMatrix, config) {
+            const xs = [], ys = [], zs = [];
+            const concs = benchmarkData.concurrencies;
+            const ctxs = benchmarkData.contexts;
+            for (let ci = 0; ci < ctxs.length; ci++) {
+                for (let cj = 0; cj < concs.length; cj++) {
+                    xs.push(concs[cj]);
+                    ys.push(ctxs[ci]);
+                    zs.push(zMatrix[ci][cj]);
+                }
+            }
+            return {
+                type: 'scatter3d',
+                mode: 'markers',
+                x: xs, y: ys, z: zs,
+                marker: {
+                    size: 4,
+                    color: config.color,
+                    line: { width: 0.5, color: 'rgba(255,255,255,0.5)' },
+                    opacity: 1,
+                },
+                name: config.label + ' pts',
+                showlegend: false,
+                hovertemplate: `<b>${config.label}</b><br>Conc: %{x}<br>Ctx: %{y}<br>%{z:.1f} tok/s<extra></extra>`,
+            };
+        }
+
+        function getMaxThroughput() {
+            let max = 0;
+            for (const m of Object.values(benchmarkData.wattages)) {
+                for (const row of m) {
+                    for (const v of row) { if (v > max) max = v; }
+                }
+            }
+            return max;
+        }
+
+        // Precomputed axis extents (set after data loads)
+        let AXIS_RANGES = {};
+        function computeAxisRanges() {
+            const concs = benchmarkData.concurrencies;
+            const ctxs = benchmarkData.contexts;
+            const maxZ = getMaxThroughput();
+            // Pad each axis slightly beyond the data bounds
+            AXIS_RANGES = {
+                x: [Math.min(0, concs[0] - 1), concs[concs.length - 1] * 1.06],
+                y: [Math.min(0, ctxs[0] - 2000), ctxs[ctxs.length - 1] * 1.06],
+                z: [0, maxZ * 1.1],
+            };
+        }
+
+        // Marching squares: compute contour line segments where zMatrix intersects z=level
+        function computeContourSegments(zMatrix, level) {
+            const concs = benchmarkData.concurrencies;
+            const ctxs = benchmarkData.contexts;
+            const segments = [];
+
+            function lerp(v0, v1, p0, p1) {
+                if (v1 === v0) return (p0 + p1) / 2;
+                const t = (level - v0) / (v1 - v0);
+                return p0 + t * (p1 - p0);
+            }
+
+            for (let i = 0; i < ctxs.length - 1; i++) {
+                for (let j = 0; j < concs.length - 1; j++) {
+                    // Cell corners: SW(j,i) SE(j+1,i) NE(j+1,i+1) NW(j,i+1)
+                    const sw = zMatrix[i][j], se = zMatrix[i][j + 1];
+                    const nw = zMatrix[i + 1][j], ne = zMatrix[i + 1][j + 1];
+                    const x0 = concs[j], x1 = concs[j + 1];
+                    const y0 = ctxs[i], y1 = ctxs[i + 1];
+
+                    const code = (sw >= level ? 1 : 0) | (se >= level ? 2 : 0)
+                        | (ne >= level ? 4 : 0) | (nw >= level ? 8 : 0);
+                    if (code === 0 || code === 15) continue;
+
+                    // Edge crossing points (lazy computed)
+                    const pS = () => ({ x: lerp(sw, se, x0, x1), y: y0 });
+                    const pE = () => ({ x: x1, y: lerp(se, ne, y0, y1) });
+                    const pN = () => ({ x: lerp(nw, ne, x0, x1), y: y1 });
+                    const pW = () => ({ x: x0, y: lerp(sw, nw, y0, y1) });
+
+                    switch (code) {
+                        case 1: case 14: segments.push([pS(), pW()]); break;
+                        case 2: case 13: segments.push([pS(), pE()]); break;
+                        case 3: case 12: segments.push([pW(), pE()]); break;
+                        case 4: case 11: segments.push([pE(), pN()]); break;
+                        case 5: segments.push([pS(), pW()]); segments.push([pE(), pN()]); break;
+                        case 6: case 9: segments.push([pS(), pN()]); break;
+                        case 7: case 8: segments.push([pW(), pN()]); break;
+                        case 10: segments.push([pS(), pE()]); segments.push([pW(), pN()]); break;
+                    }
+                }
+            }
+            return segments;
+        }
+
+        function buildSliceTraces() {
+            const traces = [];
+            if (sliceAxis === 'none' || sliceValue === null) return traces;
+
+            const concs = benchmarkData.concurrencies;
+            const ctxs = benchmarkData.contexts;
+            const maxZ = getMaxThroughput() * 1.05;
+
+            if (sliceAxis === 'x') {
+                // Fixed concurrency — vertical YZ plane
+                const ci = concs.indexOf(sliceValue);
+                if (ci === -1) return traces;
+
+                // Slice plane — span full axis ranges
+                traces.push({
+                    type: 'mesh3d',
+                    x: [sliceValue, sliceValue, sliceValue, sliceValue],
+                    y: [AXIS_RANGES.y[0], AXIS_RANGES.y[1], AXIS_RANGES.y[1], AXIS_RANGES.y[0]],
+                    z: [0, 0, AXIS_RANGES.z[1], AXIS_RANGES.z[1]],
+                    i: [0, 0], j: [1, 2], k: [2, 3],
+                    opacity: 0.15, color: '#a78bfa', flatshading: true,
+                    showlegend: false, hoverinfo: 'skip',
+                });
+
+                // Cross-section lines
+                for (const cfg of WATTAGES_CONFIG) {
+                    if (!visibleSurfaces.has(cfg.label) || !benchmarkData.wattages[cfg.label]) continue;
+                    const matrix = benchmarkData.wattages[cfg.label];
+                    const zVals = matrix.map(row => row[ci]);
+                    traces.push({
+                        type: 'scatter3d', mode: 'lines+markers',
+                        x: ctxs.map(() => sliceValue),
+                        y: ctxs, z: zVals,
+                        line: { width: 10, color: cfg.color },
+                        marker: { size: 4, color: cfg.color, line: { width: 0.5, color: '#fff' } },
+                        showlegend: false,
+                        hovertemplate: `<b>${cfg.label} @ ${sliceValue} users</b><br>Ctx: %{y}<br>%{z:.1f} tok/s<extra></extra>`,
+                    });
+                }
+            } else if (sliceAxis === 'y') {
+                // Fixed context length — vertical XZ plane
+                const ri = ctxs.indexOf(sliceValue);
+                if (ri === -1) return traces;
+
+                traces.push({
+                    type: 'mesh3d',
+                    x: [AXIS_RANGES.x[0], AXIS_RANGES.x[1], AXIS_RANGES.x[1], AXIS_RANGES.x[0]],
+                    y: [sliceValue, sliceValue, sliceValue, sliceValue],
+                    z: [0, 0, AXIS_RANGES.z[1], AXIS_RANGES.z[1]],
+                    i: [0, 0], j: [1, 2], k: [2, 3],
+                    opacity: 0.15, color: '#60a5fa', flatshading: true,
+                    showlegend: false, hoverinfo: 'skip',
+                });
+
+                for (const cfg of WATTAGES_CONFIG) {
+                    if (!visibleSurfaces.has(cfg.label) || !benchmarkData.wattages[cfg.label]) continue;
+                    const row = benchmarkData.wattages[cfg.label][ri];
+                    traces.push({
+                        type: 'scatter3d', mode: 'lines+markers',
+                        x: concs,
+                        y: concs.map(() => sliceValue),
+                        z: row,
+                        line: { width: 10, color: cfg.color },
+                        marker: { size: 4, color: cfg.color, line: { width: 0.5, color: '#fff' } },
+                        showlegend: false,
+                        hovertemplate: `<b>${cfg.label} @ ${fmtCtx(sliceValue)} ctx</b><br>Conc: %{x}<br>%{z:.1f} tok/s<extra></extra>`,
+                    });
+                }
+            } else if (sliceAxis === 'z') {
+                // Fixed throughput — horizontal XY plane
+                traces.push({
+                    type: 'mesh3d',
+                    x: [AXIS_RANGES.x[0], AXIS_RANGES.x[1], AXIS_RANGES.x[1], AXIS_RANGES.x[0]],
+                    y: [AXIS_RANGES.y[0], AXIS_RANGES.y[0], AXIS_RANGES.y[1], AXIS_RANGES.y[1]],
+                    z: [sliceValue, sliceValue, sliceValue, sliceValue],
+                    i: [0, 0], j: [1, 2], k: [2, 3],
+                    opacity: 0.18, color: '#f472b6', flatshading: true,
+                    showlegend: false, hoverinfo: 'skip',
+                });
+
+                // Compute contour intersection for each wattage
+                for (const cfg of WATTAGES_CONFIG) {
+                    if (!visibleSurfaces.has(cfg.label) || !benchmarkData.wattages[cfg.label]) continue;
+                    const segments = computeContourSegments(benchmarkData.wattages[cfg.label], sliceValue);
+                    if (segments.length === 0) continue;
+
+                    const xs = [], ys = [], zs = [];
+                    for (const [p1, p2] of segments) {
+                        xs.push(p1.x, p2.x, null);
+                        ys.push(p1.y, p2.y, null);
+                        zs.push(sliceValue, sliceValue, null);
+                    }
+
+                    traces.push({
+                        type: 'scatter3d', mode: 'lines',
+                        x: xs, y: ys, z: zs,
+                        line: { width: 10, color: cfg.color },
+                        showlegend: false,
+                        hovertemplate: `<b>${cfg.label} @ ${sliceValue} tok/s</b><extra></extra>`,
+                        connectgaps: false,
+                    });
+                }
+            }
+
+            return traces;
+        }
+
+        function fmtCtx(v) { return v >= 1000 ? (v / 1000) + 'K' : String(v); }
+
+        // ═══════════ RENDER ═══════════
+        function renderPlot() {
+            if (!benchmarkData) return;
+
+            const traces = [];
+            const slicing = sliceAxis !== 'none' && sliceValue !== null;
+
+            if (slicing) {
+                // Slice mode: only show slice plane + cross-section lines (no surfaces)
+                traces.push(...buildSliceTraces());
+            } else {
+                // Normal mode: show surfaces
+                for (const cfg of WATTAGES_CONFIG) {
+                    if (visibleSurfaces.has(cfg.label) && benchmarkData.wattages[cfg.label]) {
+                        traces.push(buildSurface(benchmarkData.wattages[cfg.label], cfg));
+                    }
+                }
+
+                // Dots (only in normal mode)
+                if (showDots) {
+                    for (const cfg of WATTAGES_CONFIG) {
+                        if (visibleSurfaces.has(cfg.label) && benchmarkData.wattages[cfg.label]) {
+                            traces.push(buildDots(benchmarkData.wattages[cfg.label], cfg));
+                        }
+                    }
+                }
+            }
+
+            const cam = getCurrentCamera();
+            cam.projection = { type: 'orthographic' };
+
+            const layout = {
+                paper_bgcolor: '#0a0a0f',
+                plot_bgcolor: '#0a0a0f',
+                font: { family: 'Inter, sans-serif', color: '#9ca3af', size: 12 },
+                margin: { l: 0, r: 0, t: 0, b: 0 },
+                scene: {
+                    xaxis: {
+                        title: { text: 'Concurrency', font: { size: 13, color: '#60a5fa' } },
+                        gridcolor: 'rgba(255,255,255,0.06)',
+                        zerolinecolor: 'rgba(255,255,255,0.08)',
+                        backgroundcolor: '#0e0e18',
+                        showbackground: true,
+                        color: '#6b7280',
+                        type: 'linear',
+                        tickvals: benchmarkData.concurrencies,
+                        ticktext: benchmarkData.concurrencies.map(String),
+                        range: AXIS_RANGES.x,
+                    },
+                    yaxis: {
+                        title: { text: 'Context Length', font: { size: 13, color: '#a78bfa' } },
+                        gridcolor: 'rgba(255,255,255,0.06)',
+                        zerolinecolor: 'rgba(255,255,255,0.08)',
+                        backgroundcolor: '#0e0e18',
+                        showbackground: true,
+                        color: '#6b7280',
+                        type: 'linear',
+                        tickvals: benchmarkData.contexts,
+                        ticktext: benchmarkData.contexts.map(fmtCtx),
+                        range: AXIS_RANGES.y,
+                    },
+                    zaxis: {
+                        title: { text: 'Throughput (tok/s)', font: { size: 13, color: '#f472b6' } },
+                        gridcolor: 'rgba(255,255,255,0.06)',
+                        zerolinecolor: 'rgba(255,255,255,0.08)',
+                        backgroundcolor: '#0e0e18',
+                        showbackground: true,
+                        color: '#6b7280',
+                        range: AXIS_RANGES.z,
+                    },
+                    camera: cam,
+                    aspectratio: window.innerWidth < 768
+                        ? { x: 1.0, y: 1.2, z: 0.7 }
+                        : { x: 1.2, y: 1.4, z: 0.8 },
+                },
+                showlegend: false,
+            };
+
+            Plotly.react('plot', traces, layout, {
+                responsive: true,
+                displayModeBar: false,
+                scrollZoom: true,
+            });
+        }
+
+        // ═══════════ CAMERA ═══════════
+        function getInteractiveCamera() {
+            try {
+                const plotEl = document.getElementById('plot');
+                return JSON.parse(JSON.stringify(plotEl._fullLayout.scene._scene.getCamera()));
+            } catch (e) { return null; }
+        }
+
+        function getCurrentCamera() {
+            const cam = getInteractiveCamera();
+            if (cam) return cam;
+            const plotEl = document.getElementById('plot');
+            if (plotEl?.layout?.scene?.camera) return plotEl.layout.scene.camera;
+            return getDefaultCamera();
+        }
+
+        // ═══════════ WIGGLE ═══════════
+        document.getElementById('plot').addEventListener('wheel', (e) => {
+            if (!wiggleActive || !wiggleBaseCamera) return;
+            e.preventDefault();
+            const s = e.deltaY > 0 ? 1.05 : 0.95;
+            wiggleBaseCamera.eye.x *= s; wiggleBaseCamera.eye.y *= s; wiggleBaseCamera.eye.z *= s;
+        }, { passive: false, capture: true });
+        function startWiggle() {
+            wiggleBaseCamera = getCurrentCamera();
+            wiggleAngle = 0;
+            isAnimatingWiggle = true;
+
+            function frame() {
+                if (!wiggleActive) { isAnimatingWiggle = false; return; }
+                wiggleAngle += 0.025 * wiggleSpeed;
+                const offset = Math.sin(wiggleAngle) * 0.12;
+                const eye = wiggleBaseCamera.eye;
+                const r = Math.sqrt(eye.x * eye.x + eye.y * eye.y);
+                const theta = Math.atan2(eye.y, eye.x) + offset;
+
+                Plotly.relayout('plot', {
+                    'scene.camera': {
+                        eye: { x: r * Math.cos(theta), y: r * Math.sin(theta), z: eye.z },
+                        center: wiggleBaseCamera.center,
+                        up: wiggleBaseCamera.up,
+                        projection: { type: 'orthographic' },
+                    }
+                });
+                wiggleRAF = requestAnimationFrame(frame);
+            }
+            wiggleRAF = requestAnimationFrame(frame);
+        }
+
+        function stopWiggle() {
+            wiggleActive = false;
+            isAnimatingWiggle = false;
+            if (wiggleRAF) { cancelAnimationFrame(wiggleRAF); wiggleRAF = null; }
+            if (wiggleBaseCamera) {
+                wiggleBaseCamera.projection = { type: 'orthographic' };
+                Plotly.relayout('plot', { 'scene.camera': wiggleBaseCamera });
+            }
+        }
+
+        // ═══════════ SLICE UI LOGIC ═══════════
+        function populateSliceValues() {
+            const sel = document.getElementById('sliceValue');
+            sel.innerHTML = '';
+
+            if (sliceAxis === 'none') {
+                sel.disabled = true;
+                sel.innerHTML = '<option value="">—</option>';
+                sliceValue = null;
+                return;
+            }
+
+            sel.disabled = false;
+            let values, labels;
+
+            if (sliceAxis === 'x') {
+                values = benchmarkData.concurrencies;
+                labels = values.map(v => v + ' users');
+            } else if (sliceAxis === 'y') {
+                values = benchmarkData.contexts;
+                labels = values.map(v => fmtCtx(v) + ' ctx');
+            } else if (sliceAxis === 'z') {
+                const max = getMaxThroughput();
+                values = [];
+                for (let v = 100; v <= max; v += 100) values.push(Math.round(v));
+                labels = values.map(v => v + ' tok/s');
+            }
+
+            for (let i = 0; i < values.length; i++) {
+                const opt = document.createElement('option');
+                opt.value = values[i];
+                opt.textContent = labels[i];
+                sel.appendChild(opt);
+            }
+
+            // Default to middle value
+            const mid = Math.floor(values.length / 2);
+            sel.selectedIndex = mid;
+            sliceValue = values[mid];
+        }
+
+        // ═══════════ UI INIT ═══════════
+        function initUI() {
+            // Wattage buttons (hot → cool, left → right)
+            const container = document.getElementById('surfaceToggles');
+            container.innerHTML = '';
+            for (const cfg of [...WATTAGES_CONFIG].reverse()) {
+                const btn = document.createElement('button');
+                btn.className = 'surface-btn active';
+                btn.style.setProperty('--btn-color', cfg.color);
+                btn.textContent = cfg.label;
+                btn.addEventListener('click', () => {
+                    visibleSurfaces.has(cfg.label) ? visibleSurfaces.delete(cfg.label) : visibleSurfaces.add(cfg.label);
+                    btn.classList.toggle('active');
+                    renderPlot();
+                });
+                container.appendChild(btn);
+            }
+
+            // Dots toggle
+            document.getElementById('dotsToggle').addEventListener('change', (e) => {
+                showDots = e.target.checked;
+                renderPlot();
+            });
+
+
+
+            // Wiggle toggle + speed
+            const wiggleToggle = document.getElementById('wiggleToggle');
+            const speedControl = document.getElementById('speedControl');
+
+            wiggleToggle.addEventListener('change', () => {
+                wiggleActive = wiggleToggle.checked;
+                if (wiggleActive) {
+                    speedControl.style.opacity = '1';
+                    speedControl.style.pointerEvents = 'auto';
+                    startWiggle();
+                } else {
+                    speedControl.style.opacity = '0.3';
+                    speedControl.style.pointerEvents = 'none';
+                    stopWiggle();
+                }
+            });
+
+            document.getElementById('speedSlider').addEventListener('input', (e) => {
+                wiggleSpeed = parseFloat(e.target.value);
+            });
+
+            // Slice controls
+            document.getElementById('sliceAxis').addEventListener('change', (e) => {
+                sliceAxis = e.target.value;
+                populateSliceValues();
+                renderPlot();
+            });
+
+            document.getElementById('sliceValue').addEventListener('change', (e) => {
+                sliceValue = Number(e.target.value);
+                renderPlot();
+            });
+        }
+
+        // ═══════════ GO ═══════════
+        loadData();
+
+        // Re-render on resize (orientation change, etc.)
+        let resizeTimer;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+                if (benchmarkData) renderPlot();
+            }, 250);
+        });
+    </script>
+</body>
+
+</html>

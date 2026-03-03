@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>vLLM Throughput 3D Heatmap — Power Limit Comparison</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0a0a0f;
+            color: #e0e0e8;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .header {
+            padding: 14px 28px;
+            background: linear-gradient(135deg, #12121a 0%, #1a1a2e 100%);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .header h1 {
+            font-size: 18px;
+            font-weight: 600;
+            background: linear-gradient(135deg, #60a5fa, #a78bfa, #f472b6);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
+        }
+
+        .header .subtitle {
+            font-size: 11px;
+            color: #6b7280;
+            font-weight: 400;
+        }
+
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+
+        .toggle-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toggle-group>label {
+            font-size: 13px;
+            font-weight: 500;
+            color: #9ca3af;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+            cursor: pointer;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            inset: 0;
+            background: #2a2a3e;
+            border-radius: 24px;
+            transition: 0.3s;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .toggle-slider::before {
+            content: '';
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            left: 2px;
+            bottom: 2px;
+            background: #6b7280;
+            border-radius: 50%;
+            transition: 0.3s;
+        }
+
+        .toggle-switch input:checked+.toggle-slider {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            border-color: rgba(139, 92, 246, 0.3);
+        }
+
+        .toggle-switch input:checked+.toggle-slider::before {
+            transform: translateX(20px);
+            background: #fff;
+        }
+
+        .surface-toggles {
+            display: flex;
+            gap: 4px;
+        }
+
+        .surface-btn {
+            padding: 5px 10px;
+            border-radius: 6px;
+            border: 1.5px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.04);
+            color: #9ca3af;
+            font-size: 11px;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .surface-btn.active {
+            border-color: var(--btn-color);
+            color: #fff;
+            background: color-mix(in srgb, var(--btn-color) 25%, transparent);
+            box-shadow: 0 0 10px color-mix(in srgb, var(--btn-color) 25%, transparent);
+        }
+
+        .surface-btn:hover {
+            border-color: var(--btn-color);
+            background: color-mix(in srgb, var(--btn-color) 15%, transparent);
+        }
+
+        .chart-container {
+            width: 100%;
+            height: calc(100vh - 60px);
+        }
+
+        #plot {
+            width: 100%;
+            height: 100%;
+        }
+
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: opacity 0.3s;
+        }
+
+        .speed-control label {
+            font-size: 13px;
+            font-weight: 500;
+            color: #9ca3af;
+        }
+
+        .speed-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 60px;
+            height: 4px;
+            background: #2a2a3e;
+            border-radius: 4px;
+            outline: none;
+        }
+
+        .speed-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #8b5cf6;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <div>
+            <h1>vLLM Throughput — Power Limit Comparison</h1>
+            <div class="subtitle">MiniMax-M2.5-NVFP4 · 2× RTX PRO 6000 Blackwell · 192GB VRAM</div>
+        </div>
+        <div class="controls">
+            <div class="surface-toggles" id="surfaceToggles"></div>
+            <div class="toggle-group">
+                <label for="wiggleToggle">Wiggle</label>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="wiggleToggle">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="speed-control" id="speedControl" style="opacity:0.3; pointer-events:none;">
+                <label>Speed</label>
+                <input type="range" class="speed-slider" id="speedSlider" min="0.5" max="4" step="0.25" value="1.5">
+            </div>
+        </div>
+    </div>
+    <div class="chart-container">
+        <div id="plot"></div>
+    </div>
+
+    <script>
+        // ========== CONFIG ==========
+        const DATA_FILE = 'benchmark_v3_consolidated.json';
+
+        const WATTAGES_CONFIG = [
+            { label: '250W', color: '#6366f1', colorscale: [[0, '#312e81'], [0.5, '#6366f1'], [1, '#a5b4fc']] },
+            { label: '300W', color: '#3b82f6', colorscale: [[0, '#1e3a5f'], [0.5, '#3b82f6'], [1, '#93c5fd']] },
+            { label: '350W', color: '#06b6d4', colorscale: [[0, '#164e63'], [0.5, '#06b6d4'], [1, '#67e8f9']] },
+            { label: '400W', color: '#10b981', colorscale: [[0, '#064e3b'], [0.5, '#10b981'], [1, '#6ee7b7']] },
+            { label: '450W', color: '#eab308', colorscale: [[0, '#713f12'], [0.5, '#eab308'], [1, '#fde68a']] },
+            { label: '500W', color: '#f97316', colorscale: [[0, '#7c2d12'], [0.5, '#f97316'], [1, '#fdba74']] },
+            { label: '550W', color: '#ef4444', colorscale: [[0, '#7f1d1d'], [0.5, '#ef4444'], [1, '#fca5a5']] },
+        ];
+
+        // State
+        let benchmarkData = null;
+        let visibleSurfaces = new Set(WATTAGES_CONFIG.map(w => w.label));
+        let wiggleActive = false;
+        let wiggleRAF = null;
+        let wiggleAngle = 0;
+        let wiggleSpeed = 1.5;
+        let wiggleBaseCamera = null;
+        let isAnimatingWiggle = false;
+
+        const DEFAULT_CAMERA = {
+            eye: { x: 1.8, y: -1.8, z: 1.2 },
+            center: { x: 0, y: 0, z: -0.1 },
+            up: { x: 0, y: 0, z: 1 }
+        };
+
+        // ========== LOAD DATA ==========
+        async function loadData() {
+            try {
+                const resp = await fetch(DATA_FILE);
+                benchmarkData = await resp.json();
+                initUI();
+                renderPlot();
+            } catch (e) {
+                console.error(`Failed to load ${DATA_FILE}:`, e);
+            }
+        }
+
+        // ========== BUILD SURFACE ==========
+        function buildSurface(zMatrix, config) {
+            return {
+                x: benchmarkData.concurrencies,
+                y: benchmarkData.contexts,
+                z: zMatrix,
+                type: 'surface',
+                name: config.label,
+                colorscale: config.colorscale,
+                opacity: 1.0,
+                showscale: false,
+                hovertemplate:
+                    `<b>${config.label}</b><br>` +
+                    'Concurrency: %{x}<br>' +
+                    'Context: %{y}<br>' +
+                    'Throughput: %{z:.1f} tok/s<extra></extra>',
+                contours: {
+                    z: {
+                        show: true,
+                        usecolormap: true,
+                        highlightcolor: '#fff',
+                        project: { z: false }
+                    }
+                },
+                lighting: { ambient: 0.6, diffuse: 0.5, specular: 0.3, roughness: 0.5, fresnel: 0.2 },
+            };
+        }
+
+        // ========== RENDER ==========
+        function renderPlot() {
+            if (!benchmarkData) return;
+
+            const traces = [];
+            for (const config of WATTAGES_CONFIG) {
+                if (visibleSurfaces.has(config.label) && benchmarkData.wattages[config.label]) {
+                    traces.push(buildSurface(benchmarkData.wattages[config.label], config));
+                }
+            }
+
+            const layout = {
+                paper_bgcolor: '#0a0a0f',
+                plot_bgcolor: '#0a0a0f',
+                font: { family: 'Inter, sans-serif', color: '#9ca3af', size: 12 },
+                margin: { l: 0, r: 0, t: 0, b: 0 },
+                scene: {
+                    xaxis: {
+                        title: { text: 'Concurrency', font: { size: 14, color: '#60a5fa' } },
+                        gridcolor: 'rgba(255,255,255,0.06)',
+                        zerolinecolor: 'rgba(255,255,255,0.08)',
+                        backgroundcolor: '#0e0e18',
+                        showbackground: true,
+                        color: '#6b7280',
+                        tickvals: benchmarkData.concurrencies,
+                        ticktext: benchmarkData.concurrencies.map(String),
+                    },
+                    yaxis: {
+                        title: { text: 'Context Length (tokens)', font: { size: 14, color: '#a78bfa' } },
+                        gridcolor: 'rgba(255,255,255,0.06)',
+                        zerolinecolor: 'rgba(255,255,255,0.08)',
+                        backgroundcolor: '#0e0e18',
+                        showbackground: true,
+                        color: '#6b7280',
+                        tickvals: benchmarkData.contexts,
+                        ticktext: benchmarkData.contexts.map(v => v >= 1000 ? (v / 1000) + 'K' : v),
+                    },
+                    zaxis: {
+                        title: { text: 'Throughput (tok/s)', font: { size: 14, color: '#f472b6' } },
+                        gridcolor: 'rgba(255,255,255,0.06)',
+                        zerolinecolor: 'rgba(255,255,255,0.08)',
+                        backgroundcolor: '#0e0e18',
+                        showbackground: true,
+                        color: '#6b7280',
+                    },
+                    camera: getCurrentCamera(),
+                    aspectratio: { x: 1.2, y: 1.4, z: 0.8 },
+                },
+                showlegend: false,
+            };
+
+            Plotly.react('plot', traces, layout, {
+                responsive: true,
+                displayModeBar: false,
+                scrollZoom: true,
+            });
+        }
+
+        function getInteractiveCamera() {
+            try {
+                const plotEl = document.getElementById('plot');
+                const sceneLayout = plotEl._fullLayout.scene;
+                const cam = sceneLayout._scene.getCamera();
+                return JSON.parse(JSON.stringify(cam));
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function getCurrentCamera() {
+            const cam = getInteractiveCamera();
+            if (cam) return cam;
+            const plotEl = document.getElementById('plot');
+            if (plotEl && plotEl.layout && plotEl.layout.scene && plotEl.layout.scene.camera) {
+                return plotEl.layout.scene.camera;
+            }
+            return { ...DEFAULT_CAMERA };
+        }
+
+        // ========== WIGGLE STEREOSCOPY ==========
+        function startWiggle() {
+            wiggleBaseCamera = getCurrentCamera();
+            wiggleAngle = 0;
+            isAnimatingWiggle = true;
+
+            function frame() {
+                if (!wiggleActive) {
+                    isAnimatingWiggle = false;
+                    return;
+                }
+
+                wiggleAngle += 0.025 * wiggleSpeed;
+                const amplitude = 0.12;
+                const offset = Math.sin(wiggleAngle) * amplitude;
+
+                const eye = wiggleBaseCamera.eye;
+                const r = Math.sqrt(eye.x * eye.x + eye.y * eye.y);
+                const baseTheta = Math.atan2(eye.y, eye.x);
+                const theta = baseTheta + offset;
+
+                Plotly.relayout('plot', {
+                    'scene.camera': {
+                        eye: { x: r * Math.cos(theta), y: r * Math.sin(theta), z: eye.z },
+                        center: wiggleBaseCamera.center,
+                        up: wiggleBaseCamera.up,
+                    }
+                });
+
+                wiggleRAF = requestAnimationFrame(frame);
+            }
+
+            wiggleRAF = requestAnimationFrame(frame);
+        }
+
+        function stopWiggle() {
+            wiggleActive = false;
+            isAnimatingWiggle = false;
+            if (wiggleRAF) {
+                cancelAnimationFrame(wiggleRAF);
+                wiggleRAF = null;
+            }
+            if (wiggleBaseCamera) {
+                Plotly.relayout('plot', { 'scene.camera': wiggleBaseCamera });
+            }
+        }
+
+        // ========== UI INIT ==========
+        function initUI() {
+            const container = document.getElementById('surfaceToggles');
+            container.innerHTML = '';
+
+            for (const config of [...WATTAGES_CONFIG].reverse()) {
+                const btn = document.createElement('button');
+                btn.className = 'surface-btn active';
+                btn.style.setProperty('--btn-color', config.color);
+                btn.textContent = config.label;
+                btn.addEventListener('click', () => {
+                    if (visibleSurfaces.has(config.label)) {
+                        visibleSurfaces.delete(config.label);
+                        btn.classList.remove('active');
+                    } else {
+                        visibleSurfaces.add(config.label);
+                        btn.classList.add('active');
+                    }
+                    renderPlot();
+                });
+                container.appendChild(btn);
+            }
+
+            const wiggleToggle = document.getElementById('wiggleToggle');
+            const speedControl = document.getElementById('speedControl');
+
+            wiggleToggle.addEventListener('change', () => {
+                wiggleActive = wiggleToggle.checked;
+                if (wiggleActive) {
+                    speedControl.style.opacity = '1';
+                    speedControl.style.pointerEvents = 'auto';
+                    startWiggle();
+                } else {
+                    speedControl.style.opacity = '0.3';
+                    speedControl.style.pointerEvents = 'none';
+                    stopWiggle();
+                }
+            });
+
+            document.getElementById('speedSlider').addEventListener('input', (e) => {
+                wiggleSpeed = parseFloat(e.target.value);
+            });
+        }
+
+        loadData();
+    </script>
+</body>
+
+</html>
