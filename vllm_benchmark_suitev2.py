@@ -477,7 +477,9 @@ class GPUMonitor:
             )
 
             if result.returncode == 0:
-                values = result.stdout.strip().split(", ")
+                # Take only the first GPU line (multi-GPU systems return one line per GPU)
+                first_line = result.stdout.strip().split("\n")[0]
+                values = first_line.strip().split(", ")
                 return {
                     "gpu_util": float(values[0]),
                     "mem_used": float(values[1]),
@@ -1996,9 +1998,10 @@ def get_interactive_config() -> Tuple[List[int], List[int], int, List[str]]:
     console.print("  [3] Madlib only (moderate cache hit)")
     console.print("  [4] Random only (low cache hit)")
     console.print("  [5] All three new types (deterministic + madlib + random)")
-    console.print("  [6] All four types (classic + deterministic + madlib + random)\n")
+    console.print("  [6] All four types (classic + deterministic + madlib + random)")
+    console.print("  [7] Madlib + Random (default)\n")
     
-    prompt_choice = IntPrompt.ask("Select prompt types", default=5, choices=["1", "2", "3", "4", "5", "6"])
+    prompt_choice = IntPrompt.ask("Select prompt types", default=7, choices=["1", "2", "3", "4", "5", "6", "7"])
     
     if prompt_choice == 1:
         prompt_types = ["classic"]
@@ -2015,9 +2018,12 @@ def get_interactive_config() -> Tuple[List[int], List[int], int, List[str]]:
     elif prompt_choice == 5:
         prompt_types = ["deterministic", "madlib", "random"]
         prompt_label = "All three new types"
-    else:  # 6
+    elif prompt_choice == 6:
         prompt_types = ["classic", "deterministic", "madlib", "random"]
         prompt_label = "All four types"
+    else:  # 7
+        prompt_types = ["madlib", "random"]
+        prompt_label = "Madlib + Random"
     
     # Show what will be tested
     console.print(f"\n[dim]Context lengths: {', '.join([f'{c//1000}K' for c in context_lengths])}[/dim]")
