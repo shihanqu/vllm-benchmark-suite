@@ -1,4 +1,4 @@
-Go to https://github.com/notaDestroyer/vllm-benchmark-suite/wiki for results
+Go to https://github.com/shihanqu/vllm-benchmark-suite/wiki for results
 
 # vLLM Performance Benchmark Suite v2.0
 
@@ -63,7 +63,7 @@ The benchmark suite consists of:
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/notaDestroyer/vllm-benchmark-suite.git
+git clone https://github.com/shihanqu/vllm-benchmark-suite.git
 cd vllm-benchmark-suite
 ```
 
@@ -601,7 +601,7 @@ If you use this benchmark suite in your research or testing:
   title = {vLLM Performance Benchmark Suite v2.0},
   author = {amit},
   year = {2025},
-  url = {https://github.com/notaDestroyer/vllm-benchmark-suite}
+  url = {https://github.com/shihanqu/vllm-benchmark-suite}
 }
 ```
 
