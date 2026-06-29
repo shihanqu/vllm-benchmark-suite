@@ -25,7 +25,7 @@
       "kv_cache_usage": null,
       "prefix_caching": null,
       "additional_info": {
-        "root": "/home/shihan/LocalLLM/hf_fast/hub/models--vincentzed-hf--Qwen3.5-397B-A17B-NVFP4/snapshots/ec6031dc866045e7ff2d74e9612f27a6c7d73be4",
+        "root": "~/.cache/huggingface/hub/models--vincentzed-hf--Qwen3.5-397B-A17B-NVFP4/snapshots/ec6031dc866045e7ff2d74e9612f27a6c7d73be4",
         "running_requests": 0
       }
     },

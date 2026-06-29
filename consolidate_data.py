@@ -3,7 +3,7 @@ import os
 import re
 
 def consolidate_benchmarks():
-    output_dir = "/home/shihan/Projects/vllm-benchmark-suite/vllm-benchmark-suite/outputs"
+    output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "outputs")
     files = [f for f in os.listdir(output_dir) if f.endswith('.json') and 'W_MiniMax' in f]
     
     # Sort files by wattage numerically
