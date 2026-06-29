@@ -1997,11 +1997,11 @@ def get_interactive_config() -> Tuple[List[int], List[int], int, List[str]]:
     console.print("  [2] Deterministic only (high cache hit)")
     console.print("  [3] Madlib only (moderate cache hit)")
     console.print("  [4] Random only (low cache hit)")
-    console.print("  [5] All three new types (deterministic + madlib + random)")
+    console.print("  [5] All three new types (deterministic + madlib + random) (default)")
     console.print("  [6] All four types (classic + deterministic + madlib + random)")
-    console.print("  [7] Madlib + Random (default)\n")
+    console.print("  [7] Madlib + Random\n")
     
-    prompt_choice = IntPrompt.ask("Select prompt types", default=7, choices=["1", "2", "3", "4", "5", "6", "7"])
+    prompt_choice = IntPrompt.ask("Select prompt types", default=5, choices=["1", "2", "3", "4", "5", "6", "7"])
     
     if prompt_choice == 1:
         prompt_types = ["classic"]

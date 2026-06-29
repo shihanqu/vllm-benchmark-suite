@@ -11,8 +11,18 @@ print("[RUNNER] Starting v3 benchmark (non-interactive).\n")
 # --- Patch the module before importing the rest ---
 import vllm_benchmark_suitev3 as bench
 
-# Ensure API URL points to port 30000
-bench.API_BASE_URL = "http://localhost:30000"
+# Patch requests.post to map our display model name to the real model ID
+import requests
+_original_post = requests.post
+def patched_post(url, **kwargs):
+    if 'json' in kwargs and isinstance(kwargs['json'], dict) and 'model' in kwargs['json']:
+        if kwargs['json']['model'] == "deepseek-v4-flash-dspark-vllm":
+            kwargs['json']['model'] = "DeepSeek-V4-Flash-DSpark"
+    return _original_post(url, **kwargs)
+bench.requests.post = patched_post
+
+# Ensure API URL points to port 1235
+bench.API_BASE_URL = "http://localhost:1235"
 bench.API_ENDPOINT = f"{bench.API_BASE_URL}/v1/chat/completions"
 bench.API_MODELS_ENDPOINT = f"{bench.API_BASE_URL}/v1/models"
 bench.API_HEALTH_ENDPOINT = f"{bench.API_BASE_URL}/health"
@@ -21,8 +31,8 @@ bench.API_VERSION_ENDPOINT = f"{bench.API_BASE_URL}/version"
 # GPU Description Override
 # Set this to override the auto-detected GPU name in reports
 # ============================================================
-GPU_DESCRIPTION = "4x NVIDIA RTX PRO 6000 Blackwell (96GB) - 400W Power Limit"
-MODEL_NAME_OVERRIDE = "nvidia/Qwen3.5-397B-A17B-NVFP4"
+GPU_DESCRIPTION = "2x NVIDIA RTX PRO 6000 Blackwell (96GB) - 300W Power Limit - vLLM"
+MODEL_NAME_OVERRIDE = "deepseek-v4-flash-dspark-vllm"
 
 # Patch SystemInfo.get_system_info to inject the GPU override
 _original_get_system_info = bench.SystemInfo.get_system_info
@@ -52,7 +62,7 @@ bench.VLLMServerInfo.get_server_info = patched_get_server_info
 _original_get_interactive_config = bench.get_interactive_config
 
 def custom_config():
-    context_lengths = [1000, 2000, 4000, 8000, 16000, 32000, 64000, 128000]
+    context_lengths = [1000, 4000, 16000, 48000, 128000, 256000]
     concurrent_users = [1, 2, 4, 8, 16, 32, 64]
     output_tokens = 500
     prompt_types = ["classic"]
