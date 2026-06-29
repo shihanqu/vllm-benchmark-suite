@@ -16,13 +16,13 @@ import requests
 _original_post = requests.post
 def patched_post(url, **kwargs):
     if 'json' in kwargs and isinstance(kwargs['json'], dict) and 'model' in kwargs['json']:
-        if kwargs['json']['model'] == "deepseek-v4-flash-dspark-vllm":
-            kwargs['json']['model'] = "DeepSeek-V4-Flash-DSpark"
+        if kwargs['json']['model'] == "qwen3.6-35b-a3b-fp8-dflash-sglang":
+            kwargs['json']['model'] = "Qwen3.6-35B-A3B-FP8-DFlash"
     return _original_post(url, **kwargs)
 bench.requests.post = patched_post
 
-# Ensure API URL points to port 1235
-bench.API_BASE_URL = "http://localhost:1235"
+# Ensure API URL points to port 1236
+bench.API_BASE_URL = "http://localhost:1236"
 bench.API_ENDPOINT = f"{bench.API_BASE_URL}/v1/chat/completions"
 bench.API_MODELS_ENDPOINT = f"{bench.API_BASE_URL}/v1/models"
 bench.API_HEALTH_ENDPOINT = f"{bench.API_BASE_URL}/health"
@@ -31,8 +31,8 @@ bench.API_VERSION_ENDPOINT = f"{bench.API_BASE_URL}/version"
 # GPU Description Override
 # Set this to override the auto-detected GPU name in reports
 # ============================================================
-GPU_DESCRIPTION = "2x NVIDIA RTX PRO 6000 Blackwell (96GB) - 300W Power Limit - vLLM"
-MODEL_NAME_OVERRIDE = "deepseek-v4-flash-dspark-vllm"
+GPU_DESCRIPTION = "2x NVIDIA RTX PRO 6000 Blackwell (96GB) - 300W Power Limit - SGLang"
+MODEL_NAME_OVERRIDE = "qwen3.6-35b-a3b-fp8-dflash-sglang"
 
 # Patch SystemInfo.get_system_info to inject the GPU override
 _original_get_system_info = bench.SystemInfo.get_system_info
