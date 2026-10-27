@@ -1,0 +1,17 @@
+# Offline engine: vLLM's LLM() runs in-process, exactly like LLM-Inference-Bench's
+# benchmark_latency.py (one llm.generate() per batch, TTFT from a max_tokens=1 probe batch).
+# Stop any vLLM server on the same GPUs first. One tensor-parallel size per run.
+
+engine = "offline"
+model = "meta-llama/Meta-Llama-3-8B"
+tensor_parallel = 1
+dtype = "float16"                 # the paper ran fp16
+gpu_memory_utilization = 0.9
+# max_model_len = 8192
+
+preset = "argonne"
+label = "llama3-8b-fp16-offline"
+
+[engine_args]                     # passed straight to vllm.LLM(...)
+# enforce_eager = true
+# kv_cache_dtype = "fp8"

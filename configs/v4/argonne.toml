@@ -1,0 +1,13 @@
+# Exact LLM-Inference-Bench vLLM sweep (Argonne, arXiv:2411.00136):
+# batch 1/16/32/64 x input=output 128..2048, 10 warmup + 30 measured batches,
+# random token-id prompts, ignore_eos, temperature 1.0, top_p 1.0.
+# 20 tests x 40 batches each - expect a long run on large models.
+
+[endpoint]
+url = "http://localhost:8000"
+
+[workload]
+preset = "argonne"
+
+[labels]
+# label = "llama3-8b-fp16-h100"

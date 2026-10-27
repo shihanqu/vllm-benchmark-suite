@@ -1,5 +1,32 @@
 # Changelog
 
+## v4.0 - LLM-Inference-Bench methodology (2026-10-27)
+
+New `vllm_benchmark_suitev4.py` + `suite_v4/` package; v1-v3 are unchanged.
+
+### Measurement (LLM-Inference-Bench, Argonne, arXiv:2411.00136)
+- Batches of B requests released together; random token-id prompts of exact length, fresh per batch; `ignore_eos` forces exact output length (verified by a preflight request)
+- Warmup + measured iterations; batch latency (mean, p10-p99), total throughput B×(in+out)/latency, throughput per watt
+- Presets: `standard`, `argonne` (exact paper settings), `long-context` (v3 grid), `quick`
+- Endpoint engine streams `/v1/completions` (or `/v1/chat/completions`): measured TTFT, TPOT, ITL, end-to-end latency, prefill throughput, tokens per chunk
+- Offline engine runs vLLM `LLM()` in-process like the paper's scripts, with the paper's `max_tokens=1` TTFT probe
+- Fresh random seed per run (recorded) so repeated runs don't hit the server's prefix cache
+
+### Telemetry
+- NVML: power, clocks, temperature, utilization, enforced power limit, power-cap / thermal throttle residency, hardware energy counter (falls back to nvidia-smi)
+- Idle power baseline; energy per output token and tokens per joule per test
+- Server `/metrics` (vLLM V0/V1 names, SGLang fallbacks): KV cache usage, queue time, preemptions, prefix-cache hit rate, speculative-decoding acceptance, KV cache capacity
+
+### Reports
+- Same PNG style and row order as v3 with log-scaled length axis, a color per batch size (no repeats) and new rows: KPI strip, energy, tail latency, server internals, run timeline, input×output heatmaps; FAIL/SKIP cells; INCOMPLETE banner
+- Header shows power limit, driver, KV capacity, prefix caching, speculative decoding, methodology
+- Outputs: JSON (checkpointed after every test, includes v3 column aliases), CSV, LLM-Inference-Bench-format CSV, per-request CSV
+- `report` subcommand re-renders a PNG from results JSON
+- Config files (TOML/JSON) and CLI flags replace v3's monkey-patched runner; `run_benchmark_v4.sh`
+
+### Testing
+- `tests/v4`: mock continuous-batching server, fake nvidia-smi, fake vllm and pynvml; unit and end-to-end tests
+
 ## v2.0 - Enhanced Edition (2025-10-17)
 
 ### Major Features

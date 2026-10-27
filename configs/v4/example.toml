@@ -1,0 +1,42 @@
+# vLLM Benchmark Suite v4 - example configuration
+#   python vllm_benchmark_suitev4.py run --config configs/v4/example.toml
+# Any key can also be passed as a CLI flag (CLI wins). Sections are only for readability.
+
+[endpoint]
+url = "http://localhost:1236"
+api = "completions"              # completions (token-id prompts, exact lengths) | chat (text prompts)
+# model = "Qwen3.6-35B-A3B-NVFP4" # served model id; auto-detected from /v1/models when omitted
+prompt_format = "token_ids"      # token_ids | text
+
+[workload]
+# Presets: standard (default), argonne, long-context, quick. Keys below override the preset.
+preset = "standard"
+# batch_sizes = [1, 16, 32, 64]
+# io_lengths = [128, 256, 512, 1024, 2048]      # input = output (LLM-Inference-Bench style)
+# input_lengths = [1000, 4000, 16000]           # or a cross grid: every input x every output
+# output_lengths = [500]
+# warmup_iterations = 2
+# iterations = 5
+temperature = 1.0                # LLM-Inference-Bench sampling
+top_p = 1.0
+# seed = 1234                    # omit for a fresh seed per run (avoids prefix-cache reuse between runs)
+cooldown_seconds = 3
+request_timeout = 1800
+
+[labels]
+label = "qwen3.6-35b-a3b-nvfp4-vllm"   # titles and file names
+# hardware = "2x NVIDIA RTX PRO 6000 Blackwell (96GB)"  # power limit is detected automatically
+# framework = "vLLM"
+# tensor_parallel = 2            # metadata only for endpoint runs (vLLM does not expose it)
+# num_gpus = 2                   # "Num of Hardware" in the LLM-Inference-Bench CSV
+
+[telemetry]
+gpu_monitor = true
+gpu_poll_interval = 0.1
+# gpu_indices = [0, 1]           # nvidia-smi indices of the GPUs serving the model
+server_metrics = true
+idle_power_seconds = 3
+
+[output]
+output_dir = "./outputs"
+png_dpi = 300

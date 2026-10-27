@@ -1,5 +1,94 @@
 Go to https://github.com/shihanqu/vllm-benchmark-suite/wiki for results
 
+# v4: LLM-Inference-Bench methodology, v3-style reports
+
+`vllm_benchmark_suitev4.py` measures with the method from [LLM-Inference-Bench](https://github.com/argonne-lcf/LLM-Inference-Bench) (Argonne National Laboratory, [arXiv:2411.00136](https://arxiv.org/abs/2411.00136)) and draws the same PNG dashboard as v3, extended with new panels. v1-v3 are unchanged.
+
+```bash
+pip install -r requirements.txt
+python vllm_benchmark_suitev4.py                                   # interactive, like v3
+python vllm_benchmark_suitev4.py run --config configs/v4/example.toml
+python vllm_benchmark_suitev4.py run --url http://localhost:1236 --preset quick -y
+./run_benchmark_v4.sh configs/v4/example.toml                      # venv setup + run
+python vllm_benchmark_suitev4.py report outputs/benchmark_v4_<label>_<timestamp>.json   # re-render PNG
+```
+
+### How it measures
+
+| LLM-Inference-Bench (vLLM scripts) | v4 |
+|---|---|
+| Batch of B prompts in one `llm.generate()` | **Endpoint (default):** B streamed requests released together to `/v1/completions`. **Offline:** `vllm.LLM().generate()` in-process, as in the paper |
+| Dummy prompts: random token ids, exactly `input_len` long | Same: token-id prompts (ids in [1000, 10000) to avoid control tokens), drawn fresh for every batch so the prefix cache can't skip prefill |
+| `ignore_eos=True`, `max_tokens=output_len` | Same; a preflight request checks that the server honours it |
+| `temperature=1.0`, `top_p=1.0` | Same (configurable) |
+| 10 warmup + 30 measured batches | `--preset argonne`; the default `standard` preset uses 2 + 5 |
+| Grid: batch 1/16/32/64 × input=output 128..2048 | Same grid by default; any `io_lengths`, or `input_lengths` × `output_lengths` |
+| Latency = mean batch wall time (p10..p99 reported) | Same |
+| Throughput = B × (input + output) / Latency | Same, plus generation throughput (v3's tokens/sec) |
+| Power: NVML every 0.25 s, throughput per watt | NVML every 0.1 s plus the GPU **energy counter** (joules per token); nvidia-smi fallback |
+| TTFT = latency of a `max_tokens=1` batch | Offline: same. Endpoint: TTFT, TPOT and ITL measured per request from the stream |
+| CSV: `Hardware, Num of Hardware, Framework, Model, Input Output Length, Batch Size, Latency, Throughput, ...` | `*_llm-inference-bench.csv` uses those columns, so results line up with the paper's data |
+
+Each run also reads the server's `/metrics` endpoint: KV cache usage, queueing, preemptions, prefix-cache hits and speculative-decoding acceptance. It records the idle and enforced GPU power limit and how often the GPU was power-capped or thermally throttled. Results are checkpointed after every test, so an interrupted or crashed run still leaves a JSON file and a PNG marked INCOMPLETE.
+
+### Outputs (`./outputs`)
+
+| File | Contents |
+|---|---|
+| `benchmark_v4_<label>_<ts>.json` | Metadata (system, server, config, methodology, telemetry timeline) + one row per test. Rows also carry v3 column names (`context_length`, `concurrent_users`, `tokens_per_second`), so `consolidate_data.py`-style scripts work |
+| `benchmark_v4_<label>_<ts>.png` | v3-style dashboard (see below) |
+| `benchmark_v4_<label>_<ts>.csv` | All per-test metrics |
+| `benchmark_v4_<label>_<ts>_llm-inference-bench.csv` | LLM-Inference-Bench column layout |
+| `benchmark_v4_<label>_<ts>_requests.csv` | Per request: TTFT, TPOT, max ITL, end-to-end, tokens, errors |
+
+### PNG dashboard
+
+The v3 layout and style are kept; the x-axis is input length (log scale, so short lengths no longer overlap) and each line is a batch size (v3's "concurrent users"):
+
+1. **KPI strip** *(new)*: peak generation and total throughput, single-stream decode speed, best TTFT, best tokens/joule, run summary
+2. Generation throughput vs length, now with a p10-p90 band across iterations
+3. **Total throughput** and **batch latency** heatmaps, as defined by LLM-Inference-Bench
+4. Throughput per user · TTFT *(measured p50)* · request latency
+5. Prompt processing speed *(measured)* · inter-token latency *(TPOT, measured)* · decode speed
+6. Power *(with power-limit and idle lines)* · SM clock *(with max clock)* · batch scaling efficiency
+7. **Energy** *(new)*: joules per output token · tokens per joule · % of time power-capped
+8. **Tail latency** *(new)*: TTFT p99 · ITL p99 (stream stalls) · run-to-run variability
+9. **Server internals** *(new, when `/metrics` is available)*: peak KV cache · queue time · preemptions · speculative-decoding acceptance length · prefix-cache hit rate (only shown if > 1%) · tokens per streamed chunk
+10. **Run timeline** *(new)*: GPU power and SM clock over the whole run, with each test's measured window shaded
+11. **Input × Output heatmaps** *(cross grids)*, like the paper's input-vs-output figure
+
+The header adds the GPU power limit, driver, KV cache capacity, prefix caching, speculative decoding and the methodology line. Failed tests (e.g. OOM) and skipped tests (longer than `max_model_len`) are marked `FAIL` / `SKIP` in heatmaps.
+
+### Presets and configuration
+
+| Preset | Grid | Warmup + measured |
+|---|---|---|
+| `standard` (default) | batch 1,16,32,64 × input=output 128..2048 | 2 + 5 |
+| `argonne` | same grid | 10 + 30 (paper settings) |
+| `long-context` | batch 1..64 × input 1K..256K, output 500 (the v3 grid) | 1 + 3 |
+| `quick` | batch 1,16,64 × input=output 128/512/2048 | 1 + 2 |
+
+Precedence: preset < config file (`configs/v4/*.toml` or `.json`) < CLI flags. See `configs/v4/example.toml` for every key and `python vllm_benchmark_suitev4.py run --help` for flags. Useful ones: `--label` (title/file name), `--gpu-indices 0,1` (GPUs serving the model), `--hardware`, `--tp`, `--output-lengths 500` (keeps the preset's inputs, fixes the output), `--api chat` (text prompts for chat-only servers), `--engine offline --model <hf-id> --tp N`.
+
+### Notes when comparing with v3 results
+
+- v3 sized prompts at ~4 characters per token and sent the *same* prompt to every user, so with prefix caching most prefill was skipped (v3's own cache heatmaps show 80-99% hits). v4 prompts are exact and unique, so TTFT and long-context throughput are lower but real.
+- v3 let generations stop at EOS; v4 forces exactly `output_len` tokens.
+- Speculative decoding (MTP, DFlash, EAGLE) accepts fewer draft tokens on random-token prompts than on natural text, so v4 shows close to worst-case decode speed for those setups. The acceptance-length panel shows what was achieved.
+- Text prompts (`--prompt-format text` / `--api chat`) are sized via vLLM's `/tokenize` when available and are approximate; token-id prompts are exact.
+
+### Testing without a GPU
+
+`tests/v4/mock_server.py` simulates a continuous-batching OpenAI-compatible server (KV capacity, queueing, preemption, optional speculative decoding, vLLM `/metrics`), and `tests/v4/fake_nvidia_smi.py` reports power-limited GPUs that follow its load:
+
+```bash
+python tests/v4/mock_server.py --port 8123 --speed 10 &
+python vllm_benchmark_suitev4.py run --url http://localhost:8123 --preset quick -y
+pip install pytest && python -m pytest tests/v4
+```
+
+---
+
 # vLLM Performance Benchmark Suite v2.0
 
 Comprehensive benchmarking tool for evaluating vLLM inference performance with automatic backend detection, advanced performance metrics, real-time monitoring, and interactive configuration.

@@ -1,0 +1,13 @@
+# The v3 grid (run_benchmark_v3.py) measured with the v4 methodology:
+# exact 1K..256K-token prompts, exactly 500 generated tokens, batch 1..64.
+# Shapes longer than the server's max_model_len are skipped and shown as SKIP cells.
+
+[endpoint]
+url = "http://localhost:1236"
+
+[workload]
+preset = "long-context"
+request_timeout = 3600
+
+[labels]
+label = "qwen3.6-35b-a3b-nvfp4-vllm-longctx"
