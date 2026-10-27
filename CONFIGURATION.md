@@ -1,3 +1,6 @@
+> **Note:** this guide covers v2/v3 (`vllm_benchmark_suitev2.py` / `vllm_benchmark_suitev3.py`).
+> The current benchmark is v4; see [README.md](README.md) for its quick start and configuration.
+
 # Configuration Guide
 
 Detailed configuration options for the vLLM Performance Benchmark Suite.

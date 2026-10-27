@@ -1,3 +1,6 @@
+> **Note:** this guide covers v2/v3 (`vllm_benchmark_suitev2.py` / `vllm_benchmark_suitev3.py`).
+> The current benchmark is v4; see [README.md](README.md) for its quick start and configuration.
+
 # Quick Start Guide
 
 Get the vLLM Performance Benchmark Suite running in 5 minutes.
@@ -180,8 +183,8 @@ REQUEST_TIMEOUT = 1800  # 30 minutes for very long contexts
 
 ## Getting Help
 
-- Check the full [README.md](README.md) for detailed documentation
-- Review [Troubleshooting](README.md#troubleshooting) section
+- Check the full [README_v2.md](README_v2.md) for detailed v2/v3 documentation
+- Review [Troubleshooting](README_v2.md#troubleshooting) section
 - Open an issue on GitHub
 - Join the vLLM Discord community
 

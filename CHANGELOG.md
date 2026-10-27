@@ -27,6 +27,10 @@ New `vllm_benchmark_suitev4.py` + `suite_v4/` package; v1-v3 are unchanged.
 ### Testing
 - `tests/v4`: mock continuous-batching server, fake nvidia-smi, fake vllm and pynvml; unit and end-to-end tests
 
+### Docs
+- README is now v4-first: why v4 is the main benchmark, version table, and credits for LLM-Inference-Bench (with citation) and the suite's contributors
+- v2/v3 documentation moved to README_v2.md; QUICKSTART.md and CONFIGURATION.md marked as v2/v3 guides
+
 ## v2.0 - Enhanced Edition (2025-10-17)
 
 ### Major Features
